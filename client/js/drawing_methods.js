@@ -3,6 +3,8 @@
 
   Tactical.DrawingMethods = {
     drawHexagon: function(x, y, s) {
+      x += this.padding;
+      y += this.padding;
       this.ctx.moveTo(x + s / 2, y);
       this.ctx.beginPath();
       this.ctx.lineTo(x + s, y + s / 4);
@@ -26,6 +28,32 @@
       this.ctx.clip();
       this.clear();
       return this.ctx.restore();
+    },
+    drawPolygon: function(polygon) {
+      var vertex, _i, _len, _ref;
+      this.ctx.beginPath();
+      _ref = polygon.vertices;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        vertex = _ref[_i];
+        this.ctx.moveTo(this.padding + vertex[0][0], this.padding + vertex[0][1]);
+        this.ctx.lineTo(this.padding + vertex[1][0], this.padding + vertex[1][1]);
+      }
+      return this.ctx.closePath();
+    },
+    strokePolygon: function(polygon) {
+      this.drawPolygon(polygon);
+      return this.ctx.stroke();
+    },
+    drawCircle: function(centerX, centerY, radius) {
+      centerX += this.padding;
+      centerY += this.padding;
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, true);
+      return this.ctx.closePath();
+    },
+    fillCircle: function(centerX, centerY, radius) {
+      this.drawCircle(centerX, centerY, radius);
+      return this.ctx.fill();
     },
     clear: function() {
       return this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
