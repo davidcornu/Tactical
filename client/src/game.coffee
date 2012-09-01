@@ -3,7 +3,7 @@ class Tactical.Game
   constructor: (options = {}) ->
     _(options).extend
       selector: '.main'
-      playerCount: 4
+      playerCount: 5
       mapWidth: 30
       mapHeight: 40
 
@@ -15,7 +15,7 @@ class Tactical.Game
 
     @renderer.drawMap()
 
-    @_bindUserEvents()
+    # @_bindUserEvents()
 
   _bindUserEvents: ->
     $(@renderer.canvas).on 'mousemove', (e) =>
@@ -36,13 +36,6 @@ class Tactical.Game
       e.preventDefault()
       cell = @map.cellAtPoint(e.offsetX, e.offsetY)
       console.log(cell) if cell
-    #     neighbors = @map.neighboringCells(cell)
-    #     console.log neighbors
-    #     for neighbor in neighbors
-    #       neighbor.hover = true
-    #     cell.hover = true
-    #     @renderer.clear()
-    #     @renderer.drawMap()
 
 
 
