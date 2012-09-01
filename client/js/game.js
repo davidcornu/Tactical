@@ -9,7 +9,7 @@
       }
       _(options).extend({
         selector: '.main',
-        playerCount: 4,
+        playerCount: 5,
         mapWidth: 30,
         mapHeight: 40
       });
@@ -18,7 +18,6 @@
       this.renderer = new Tactical.Renderer(this.map);
       this.$el.html(this.renderer.canvas);
       this.renderer.drawMap();
-      this._bindUserEvents();
     }
 
     Game.prototype._bindUserEvents = function() {
