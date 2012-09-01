@@ -1,6 +1,8 @@
 Tactical.DrawingMethods =
 
   drawHexagon: (x, y, s) ->
+    x += @padding
+    y += @padding
     @ctx.moveTo(x + s/2, y)
     @ctx.beginPath()
     @ctx.lineTo x + s   , y + s/4
@@ -24,6 +26,28 @@ Tactical.DrawingMethods =
     @ctx.clip()
     @clear()
     @ctx.restore()
+
+  drawPolygon: (polygon) ->
+    @ctx.beginPath()
+    for vertex in polygon.vertices
+      @ctx.moveTo(@padding + vertex[0][0], @padding + vertex[0][1])
+      @ctx.lineTo(@padding + vertex[1][0], @padding + vertex[1][1])
+    @ctx.closePath()
+
+  strokePolygon: (polygon) ->
+    @drawPolygon(polygon)
+    @ctx.stroke()
+
+  drawCircle: (centerX, centerY, radius) ->
+    centerX += @padding
+    centerY += @padding
+    @ctx.beginPath()
+    @ctx.arc(centerX, centerY, radius, 0, Math.PI*2, true)
+    @ctx.closePath()
+
+  fillCircle: (centerX, centerY, radius) ->
+    @drawCircle(centerX, centerY, radius)
+    @ctx.fill()
 
   clear: ->
     @ctx.clearRect(0, 0, @canvas.width, @canvas.height)
