@@ -23,7 +23,7 @@ html, body {
 
 .main {
   display: inline-block;
-  padding: 15px;
+  padding: 5px;
   background: rgba(0,0,150,0.05);
   border: 10px solid rgba(255,255,255,0.4);
   border-radius: 5px;
