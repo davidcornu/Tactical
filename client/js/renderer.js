@@ -3,7 +3,9 @@
 
   Tactical.Renderer = (function() {
 
-    Renderer.prototype.cellSize = 20;
+    Renderer.prototype.cellSize = Tactical.Cell.prototype.size;
+
+    Renderer.prototype.padding = 10;
 
     function Renderer(map) {
       _(this).extend(Tactical.DrawingMethods);
@@ -15,17 +17,17 @@
 
     Renderer.prototype.setCanvasSize = function() {
       var _this = this;
-      this.canvas.setAttribute('width', this.map.width * this.cellSize + this.cellSize / 2);
+      this.canvas.setAttribute('width', 2 * this.padding + this.map.width * this.cellSize + this.cellSize / 2);
       return this.canvas.setAttribute('height', (function() {
         var base;
-        base = 1.5 * Math.floor(_this.map.height / 2) * _this.cellSize;
+        base = 2 * _this.padding + 1.5 * Math.floor(_this.map.height / 2) * _this.cellSize;
         base += _this.map.height % 2 === 0 ? _this.cellSize / 4 : _this.cellSize;
         return base;
       })());
     };
 
     Renderer.prototype.drawMap = function() {
-      var cell, color, territory, _i, _j, _len, _len1, _ref, _ref1, _results;
+      var cell, color, territory, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, _results;
       _ref = this.map.waterCells;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         cell = _ref[_i];
@@ -35,39 +37,38 @@
       _results = [];
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         territory = _ref1[_j];
-        _results.push((function() {
-          var _k, _len2, _ref2, _results1;
-          _ref2 = territory.cells;
-          _results1 = [];
-          for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
-            cell = _ref2[_k];
-            color = territory.hover ? 'white' : territory.owner.color;
-            _results1.push(this.drawCell(cell, color));
-          }
-          return _results1;
-        }).call(this));
+        _ref2 = territory.cells;
+        for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+          cell = _ref2[_k];
+          color = territory.hover ? 'white' : territory.owner.color;
+          this.drawCell(cell, color);
+        }
+        this.drawPolygon(territory.polygon);
+        this.ctx.strokeStyle = 'black';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        _results.push(this.resetCtx());
       }
       return _results;
     };
 
     Renderer.prototype.drawCell = function(cell, color) {
-      cell.x = cell.mapX * this.cellSize;
-      cell.y = cell.mapY * this.cellSize * 0.75;
-      if ((cell.mapY + 1) % 2 === 0) {
-        cell.x += this.cellSize / 2;
-      }
       this.ctx.fillStyle = color;
       this.fillHexagon(cell.x + 1, cell.y + 1, this.cellSize - 2);
       if (cell.hover) {
         this.strokeHexagon(cell.x + 0.5, cell.y + 0.5, this.cellSize - 1);
       }
-      return this.resetColors();
+      if (cell.hasTroop) {
+        this.ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        this.fillCircle(cell.x + this.cellSize / 2, cell.y + this.cellSize / 2, this.cellSize / 5);
+      }
+      return this.resetCtx();
     };
 
-    Renderer.prototype.resetColors = function() {
+    Renderer.prototype.resetCtx = function() {
       this.ctx.fillStyle = 'white';
       this.ctx.strokeStyle = 'black';
-      return this.ctx.lineJoin = 'miter';
+      return this.ctx.lineWidth = 1;
     };
 
     return Renderer;

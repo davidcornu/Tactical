@@ -3,15 +3,22 @@
 
   Tactical.Cell = (function() {
 
-    Cell.prototype.size = Tactical.Renderer.prototype.cellSize;
+    Cell.prototype.size = 20;
 
     function Cell(mapX, mapY) {
+      this.hasTroop = false;
       this.hover = false;
       this.type = 'empty';
       this.mapX = mapX;
       this.mapY = mapY;
-      this.x = 0;
-      this.y = 0;
+      this.isOnEvenRow = (this.mapY + 1) % 2 === 0;
+      this.x = this.mapX * this.size;
+      this.y = this.mapY * this.size * 0.75;
+      if (this.isOnEvenRow) {
+        this.x += this.size / 2;
+      }
+      this.buildPoints();
+      this.buildVertices();
     }
 
     Cell.prototype.containsPoint = function(pointX, pointY) {
@@ -31,6 +38,56 @@
         yIntersect = -Math.abs(-(pointX - this.x) / 2 + 0.25 * this.size) + this.size + this.y;
         return pointY < yIntersect;
       }
+    };
+
+    Cell.prototype.neighboringCellCoords = function() {
+      var targetY, targets, _i, _len, _ref;
+      targets = [[this.mapX + 1, this.mapY], [this.mapX - 1, this.mapY]];
+      _ref = [this.mapY - 1, this.mapY + 1];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        targetY = _ref[_i];
+        targets.push([this.mapX, targetY]);
+        if (this.isOnEvenRow) {
+          targets.push([this.mapX + 1, targetY]);
+        } else {
+          targets.push([this.mapX - 1, targetY]);
+        }
+      }
+      return targets;
+    };
+
+    Cell.prototype.relativePositionOf = function(cell) {
+      var position;
+      position = [];
+      if (this.mapY === this.mapY) {
+        position.push('middle');
+      } else if (this.mapY < this.mapY) {
+        position.push('top');
+      } else {
+        position.push('bottom');
+      }
+      if (this.isOnEvenRow) {
+        position.push((this.mapX <= this.mapX ? 'left' : 'right'));
+      } else {
+        position.push((this.mapX < this.mapX ? 'left' : 'right'));
+      }
+      return position;
+    };
+
+    Cell.prototype.buildPoints = function() {
+      return this.points = [[this.x + this.size / 2, this.y], [this.x + this.size, this.y + this.size / 4], [this.x + this.size, this.y + this.size * 0.75], [this.x + this.size / 2, this.y + this.size], [this.x, this.y + this.size * 0.75], [this.x, this.y + this.size / 4]];
+    };
+
+    Cell.prototype.buildVertices = function() {
+      var i, next, points, _i, _ref, _results;
+      points = this.points;
+      this.vertices = [];
+      _results = [];
+      for (i = _i = 0, _ref = points.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+        next = (i === points.length - 1 ? 0 : i + 1);
+        _results.push(this.vertices.push([points[i], points[next]]));
+      }
+      return _results;
     };
 
     return Cell;

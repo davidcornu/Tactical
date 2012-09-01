@@ -70,6 +70,8 @@
 
     Map.prototype.cellAtPoint = function(pointX, pointY) {
       var cell, row, _i, _j, _len, _len1, _ref;
+      pointX -= Tactical.Renderer.prototype.padding;
+      pointY -= Tactical.Renderer.prototype.padding;
       _ref = this.rows;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         row = _ref[_i];
@@ -85,6 +87,8 @@
 
     Map.prototype.territoryAtPoint = function(pointX, pointY) {
       var cell, territory, _i, _j, _len, _len1, _ref, _ref1;
+      pointX -= Tactical.Renderer.prototype.padding;
+      pointY -= Tactical.Renderer.prototype.padding;
       _ref = this.territories;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         territory = _ref[_i];
@@ -112,23 +116,11 @@
     };
 
     Map.prototype.neighboringCells = function(cell) {
-      var evenRow, neighbors, target, targetY, targets, _i, _j, _len, _len1, _ref;
-      evenRow = (cell.mapY + 1) % 2 === 0;
-      targets = [[cell.mapX + 1, cell.mapY], [cell.mapX - 1, cell.mapY]];
-      _ref = [cell.mapY - 1, cell.mapY + 1];
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        targetY = _ref[_i];
-        targets.push([cell.mapX, targetY]);
-        if (evenRow) {
-          targets.push([cell.mapX + 1, targetY]);
-        }
-        if (!evenRow) {
-          targets.push([cell.mapX - 1, targetY]);
-        }
-      }
+      var neighbors, target, targets, _i, _len;
+      targets = cell.neighboringCellCoords();
       neighbors = [];
-      for (_j = 0, _len1 = targets.length; _j < _len1; _j++) {
-        target = targets[_j];
+      for (_i = 0, _len = targets.length; _i < _len; _i++) {
+        target = targets[_i];
         if (this._validMapCoords.apply(this, target)) {
           neighbors.push(this.cellAt.apply(this, target));
         }
@@ -137,11 +129,12 @@
     };
 
     Map.prototype.generatePlayers = function() {
-      var i, _i, _ref, _results;
+      var colorNames, i, _i, _ref, _results;
       this.players = [];
+      colorNames = _.keys(Tactical.Player.prototype.colors);
       _results = [];
       for (i = _i = 1, _ref = this.playerCount; 1 <= _ref ? _i <= _ref : _i >= _ref; i = 1 <= _ref ? ++_i : --_i) {
-        _results.push(this.players.push(new Tactical.Player));
+        _results.push(this.players.push(new Tactical.Player(colorNames.pop())));
       }
       return _results;
     };
@@ -182,7 +175,7 @@
     };
 
     Map.prototype.generateTerritories = function() {
-      var candidate, candidates, cell, emptyCells, emptyNeighbors, firstCell, index, islands, maxSize, minSize, neighbor, random, remainingCells, targetSize, territory, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _len5, _m, _n, _ref, _ref1, _ref2, _results;
+      var candidate, candidates, cell, emptyCells, emptyNeighbors, firstCell, index, islands, maxSize, minSize, neighbor, random, remainingCells, targetSize, territory, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _len5, _len6, _m, _n, _o, _ref, _ref1, _ref2, _ref3, _results;
       this.territories = [];
       random = function(min, max) {
         return min + Math.floor(Math.random() * (max - min));
@@ -251,7 +244,6 @@
       }
       for (_l = 0, _len3 = islands.length; _l < _len3; _l++) {
         territory = islands[_l];
-        console.log('nuked island!');
         this.territories.splice(this.territories.indexOf(territory), 1);
         _ref2 = territory.cells;
         for (_m = 0, _len4 = _ref2.length; _m < _len4; _m++) {
@@ -266,11 +258,16 @@
           return remainingCells.push(c);
         }
       });
-      _results = [];
       for (_n = 0, _len5 = remainingCells.length; _n < _len5; _n++) {
         cell = remainingCells[_n];
         cell.type = 'water';
-        _results.push(this.waterCells.push(cell));
+        this.waterCells.push(cell);
+      }
+      _ref3 = this.territories;
+      _results = [];
+      for (_o = 0, _len6 = _ref3.length; _o < _len6; _o++) {
+        territory = _ref3[_o];
+        _results.push(territory.buildPolygon());
       }
       return _results;
     };

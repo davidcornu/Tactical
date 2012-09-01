@@ -3,12 +3,23 @@
 
   Tactical.Player = (function() {
 
-    function Player() {
-      var randC;
-      randC = function() {
-        return Math.floor(Math.random() * 255);
-      };
-      this.color = "rgb(" + (randC()) + "," + (randC()) + "," + (randC()) + ")";
+    Player.prototype.colors = {
+      blue: 'rgba(77,113,134,0.5)',
+      teal: 'rgba(40,66,83,0.5)',
+      red: 'rgba(224,84,46,0.5)',
+      yellow: 'rgba(244,167,32,0.5)',
+      orage: 'rgba(239,140,18,0.5)'
+    };
+
+    function Player(colorName) {
+      if (colorName == null) {
+        colorName = '';
+      }
+      this.colorName = colorName;
+      if (!this.colors[colorName]) {
+        this.colorName = _.shuffle(_.keys(this.colors))[0];
+      }
+      this.color = this.colors[this.colorName];
     }
 
     return Player;

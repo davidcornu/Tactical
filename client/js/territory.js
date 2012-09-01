@@ -8,6 +8,57 @@
       this.owner = null;
     }
 
+    Territory.prototype.internalNeighborsOf = function(cell) {
+      var c, neighbors, target, targets, _i, _j, _len, _len1, _ref;
+      targets = cell.neighboringCellCoords();
+      neighbors = [];
+      _ref = this.cells;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        c = _ref[_i];
+        for (_j = 0, _len1 = targets.length; _j < _len1; _j++) {
+          target = targets[_j];
+          if (target[0] === c.mapX && target[1] === c.mapY) {
+            neighbors.push(c);
+          }
+        }
+      }
+      return neighbors;
+    };
+
+    Territory.prototype.outerBordersOf = function(cell) {
+      var externalBorders, internalBorders, neighbor, possibleBorders, _i, _len, _ref;
+      possibleBorders = [['top', 'left'], ['top', 'right'], ['middle', 'left'], ['middle', 'right'], ['botton', 'left'], ['bottom', 'right']];
+      internalBorders = [];
+      _ref = this.internalNeighborsOf(cell);
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        neighbor = _ref[_i];
+        internalBorders.push(cell.relativePositionOf(neighbor));
+      }
+      externalBorders = _(possibleBorders).reject(function(b) {
+        var iB, _j, _len1;
+        for (_j = 0, _len1 = internalBorders.length; _j < _len1; _j++) {
+          iB = internalBorders[_j];
+          if (iB[0] === b[0] && iB[1] === b[1]) {
+            return true;
+          }
+        }
+        return false;
+      });
+      return externalBorders;
+    };
+
+    Territory.prototype.buildPolygon = function() {
+      var cell, _i, _len, _ref, _results;
+      this.polygon = new Tactical.Polygon;
+      _ref = this.cells;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        cell = _ref[_i];
+        _results.push(this.polygon.merge(cell));
+      }
+      return _results;
+    };
+
     return Territory;
 
   })();
