@@ -31,12 +31,16 @@ class Tactical.Map
     if @_validMapCoords(mapX, mapY) then @rows[mapY][mapX] else null
 
   cellAtPoint: (pointX, pointY) ->
+    pointX -= Tactical.Renderer::padding
+    pointY -= Tactical.Renderer::padding
     for row in @rows
       for cell in row
         return cell if cell.containsPoint(pointX, pointY)
     return null
 
   territoryAtPoint: (pointX, pointY) ->
+    pointX -= Tactical.Renderer::padding
+    pointY -= Tactical.Renderer::padding
     for territory in @territories
       for cell in territory.cells
         return territory if cell.containsPoint(pointX, pointY)
@@ -48,28 +52,17 @@ class Tactical.Map
     return null
 
   neighboringCells: (cell) ->
-    evenRow = (cell.mapY + 1) % 2 == 0
-
-    targets = [
-      [cell.mapX + 1, cell.mapY],
-      [cell.mapX - 1, cell.mapY]
-    ]
-
-    for targetY in [cell.mapY - 1, cell.mapY + 1]
-      targets.push [cell.mapX, targetY]
-      targets.push [cell.mapX + 1, targetY] if evenRow
-      targets.push [cell.mapX - 1, targetY] if !evenRow
-
+    targets = cell.neighboringCellCoords()
     neighbors = []
     for target in targets
       neighbors.push(@cellAt(target...)) if @_validMapCoords(target...)
-
     return neighbors
 
   generatePlayers: ->
-    @players = []
+    @players   = []
+    colorNames = _.keys(Tactical.Player::colors)
     for i in [1..@playerCount]
-      @players.push(new Tactical.Player)
+      @players.push(new Tactical.Player(colorNames.pop()))
 
   generateWater: ->
     @waterCells = []
@@ -145,7 +138,6 @@ class Tactical.Map
 
     # Actually get rid of islands
     for territory in islands
-      console.log 'nuked island!'
       @territories.splice(@territories.indexOf(territory), 1)
       for cell in territory.cells
         cell.type = 'water'
@@ -157,6 +149,10 @@ class Tactical.Map
     for cell in remainingCells
       cell.type = 'water'
       @waterCells.push(cell)
+
+    # Generate territory polygons as we're done adding cells to them
+    for territory in @territories
+      territory.buildPolygon()
 
   assignTerritories: ->
     toGiveOut = _(@territories).shuffle()
