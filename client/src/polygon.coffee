@@ -1,42 +1,73 @@
-class Tactical.Polygon
+class Polygon
 
   constructor: ->
     @vertices = []
+    @optimized = false
 
   matchVertices: (a, b) ->
-    standard = _([
-      a[0][0] == b[0][0],
-      a[0][1] == b[0][1],
-      a[1][0] == b[1][0],
-      a[1][1] == b[1][1]
-    ]).all(_.identity)
-
-    reverse = _([
-      a[1][0] == b[0][0],
-      a[1][1] == b[0][1],
-      a[0][0] == b[1][0],
-      a[0][1] == b[1][1]
-    ]).all(_.identity)
-
-    return (standard or reverse)
-
-  hasVertex: (b) ->
-    for a in @vertices
-      return true if @matchVertices(a,b)
-    return false
-
-  removeVertex: (b) ->
-    index = do =>
-      for a, i in @vertices
-        return i if @matchVertices(a,b)
-      return null
-    @vertices.splice(index, 1) if index
+    (a[0][0] == b[0][0] and
+     a[0][1] == b[0][1] and
+     a[1][0] == b[1][0] and
+     a[1][1] == b[1][1]) or
+    (a[1][0] == b[0][0] and
+     a[1][1] == b[0][1] and
+     a[0][0] == b[1][0] and
+     a[0][1] == b[1][1])
 
   merge: (polygon) ->
-    for vertex in polygon.vertices
-      if @hasVertex(vertex)
-        @removeVertex(vertex)
-      else
-        @vertices.push(vertex)
-    return @vertices
+    throw new Error('Merge target does not have vertices') unless polygon.vertices
+    @vertices.push(v) for v in polygon.vertices
+    @deduplicate()
+    @optimized = false
 
+  deduplicate: ->
+    duplicateIndexes = []
+    for v1, i1 in @vertices
+      for v2, i2 in @vertices
+        if (i1 != i2) and (duplicateIndexes.indexOf(i2) < 0) and @matchVertices(v1, v2)
+          duplicateIndexes.push(i2)
+    @vertices.splice(index, 1) for index in _(duplicateIndexes).sortBy(_.identity).reverse()
+
+  optimize: ->
+    @optimized = true if @vertices.length == 0
+    return if @optimized
+
+    optimizedVertices = []
+    lastPoint   = null
+    nextPoint   = null
+    firstVertex = null
+    match       = null
+    matchIndex  = null
+    corrected   = null
+
+    while @vertices.length > 0
+      unless lastPoint
+        firstVertex = @vertices.pop()
+        optimizedVertices.push(firstVertex)
+        lastPoint = firstVertex[1]
+
+      nextPoint = do =>
+        match      = null
+        matchIndex = null
+        corrected  = null
+        for v, i in @vertices
+          if lastPoint[0] == v[0][0] and lastPoint[1] == v[0][1]
+            corrected  = [v[0], v[1]]
+            match      = v[1]
+            matchIndex = i
+          else if lastPoint[0] == v[1][0] and lastPoint[1] == v[1][1]
+            corrected  = [v[1], v[0]]
+            match      = v[0]
+            matchIndex = i
+          break if match && matchIndex && corrected
+
+        optimizedVertices.push(corrected) if corrected
+        @vertices.splice(matchIndex, 1)   if matchIndex
+        return match
+
+      lastPoint = if nextPoint then nextPoint else null
+
+    @vertices  = optimizedVertices
+    @optimized = true
+
+exports = Polygon
