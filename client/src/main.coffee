@@ -1,4 +1,4 @@
-window.Tactical = {}
+Game = require './game.js'
 
 jQuery ->
-  window.game = new Tactical.Game
+  window.game = new Game

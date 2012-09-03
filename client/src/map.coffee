@@ -1,4 +1,10 @@
-class Tactical.Map
+Cell        = require './cell'
+Renderer    = require './renderer'
+Player      = require './player'
+PerlinNoise = require './perlin_noise'
+Territory   = require './territory'
+
+class Map
 
   constructor: (width = 30, height = 40, playerCount) ->
     @width       = width
@@ -21,7 +27,7 @@ class Tactical.Map
     for mapY in [0..(@height - 1)]
       row = []
       for mapX in [0..(@width - 1)]
-        row.push(new Tactical.Cell(mapX, mapY))
+        row.push(new Cell(mapX, mapY))
       @rows.push(row)
 
   _validMapCoords: (mapX, mapY) ->
@@ -31,16 +37,16 @@ class Tactical.Map
     if @_validMapCoords(mapX, mapY) then @rows[mapY][mapX] else null
 
   cellAtPoint: (pointX, pointY) ->
-    pointX -= Tactical.Renderer::padding
-    pointY -= Tactical.Renderer::padding
+    pointX -= Renderer::padding
+    pointY -= Renderer::padding
     for row in @rows
       for cell in row
         return cell if cell.containsPoint(pointX, pointY)
     return null
 
   territoryAtPoint: (pointX, pointY) ->
-    pointX -= Tactical.Renderer::padding
-    pointY -= Tactical.Renderer::padding
+    pointX -= Renderer::padding
+    pointY -= Renderer::padding
     for territory in @territories
       for cell in territory.cells
         return territory if cell.containsPoint(pointX, pointY)
@@ -60,9 +66,9 @@ class Tactical.Map
 
   generatePlayers: ->
     @players   = []
-    colorNames = _.keys(Tactical.Player::colors)
+    colorNames = _.keys(Player::colors)
     for i in [1..@playerCount]
-      @players.push(new Tactical.Player(colorNames.pop()))
+      @players.push(new Player(colorNames.pop()))
 
   generateWater: ->
     @waterCells = []
@@ -71,7 +77,7 @@ class Tactical.Map
     @eachCell (cell) =>
       x = cell.mapX / @width
       y = cell.mapY / @height
-      n = Tactical.PerlinNoise.noise(size * x, size * y, 0.7)
+      n = PerlinNoise.noise(size * x, size * y, 0.7)
       if n < threshold
         cell.type = 'water'
         @waterCells.push(cell)
@@ -96,7 +102,7 @@ class Tactical.Map
     # Main loop function, iterates over initial list of empty cells
     while emptyCells.length > 0
       targetSize = random(minSize, maxSize)
-      territory  = new Tactical.Territory
+      territory  = new Territory
       firstCell  = emptyCells.pop()
 
       firstCell.type = 'terrain'
@@ -151,8 +157,7 @@ class Tactical.Map
       @waterCells.push(cell)
 
     # Generate territory polygons as we're done adding cells to them
-    for territory in @territories
-      territory.buildPolygon()
+    territory.buildPolygon() for territory in @territories
 
   assignTerritories: ->
     toGiveOut = _(@territories).shuffle()
@@ -160,3 +165,5 @@ class Tactical.Map
     while toGiveOut.length > 0
       for player in @players
         territory.owner = player if territory = toGiveOut.pop()
+
+exports = Map

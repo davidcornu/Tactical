@@ -1,4 +1,4 @@
-class Tactical.Cell
+class Cell
 
   size: 20
 
@@ -82,3 +82,5 @@ class Tactical.Cell
     for i in [0...points.length]
       next = (if i == points.length - 1 then 0 else i + 1)
       @vertices.push [points[i], points[next]]
+
+exports = Cell
