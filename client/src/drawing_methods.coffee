@@ -1,4 +1,4 @@
-Tactical.DrawingMethods =
+DrawingMethods =
 
   drawHexagon: (x, y, s) ->
     x += @padding
@@ -29,9 +29,12 @@ Tactical.DrawingMethods =
 
   drawPolygon: (polygon) ->
     @ctx.beginPath()
+    lastPoint = null
     for vertex in polygon.vertices
-      @ctx.moveTo(@padding + vertex[0][0], @padding + vertex[0][1])
+      if !lastPoint or (lastPoint and vertex[0][0] != lastPoint[0] and vertex[0][1] != lastPoint[1])
+        @ctx.moveTo(@padding + vertex[0][0], @padding + vertex[0][1])
       @ctx.lineTo(@padding + vertex[1][0], @padding + vertex[1][1])
+      lastPoint = vertex[1]
     @ctx.closePath()
 
   strokePolygon: (polygon) ->
@@ -51,3 +54,5 @@ Tactical.DrawingMethods =
 
   clear: ->
     @ctx.clearRect(0, 0, @canvas.width, @canvas.height)
+
+exports = DrawingMethods
