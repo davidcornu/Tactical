@@ -1,4 +1,7 @@
-class Tactical.Game
+Renderer = require './renderer'
+Map      = require './map'
+
+class Game
 
   constructor: (options = {}) ->
     _(options).extend
@@ -8,34 +11,34 @@ class Tactical.Game
       mapHeight: 40
 
     @$el = $(options.selector)
-    @map = new Tactical.Map(options.mapWidth, options.mapHeight, options.playerCount)
+    @map = new Map(options.mapWidth, options.mapHeight, options.playerCount)
 
-    @renderer = new Tactical.Renderer(@map)
+    @renderer = new Renderer(@map)
     @$el.html(@renderer.canvas)
 
     @renderer.drawMap()
 
-    # @_bindUserEvents()
+    @_bindUserEvents()
 
   _bindUserEvents: ->
-    $(@renderer.canvas).on 'mousemove', (e) =>
-      e.preventDefault()
-      cell = @map.cellAtPoint(e.offsetX, e.offsetY)
-      cell.hover = true if cell && cell.type != 'water'
+    # $(@renderer.canvas).on 'mousemove', (e) =>
+    #   e.preventDefault()
+    #   cell = @map.cellAtPoint(e.offsetX, e.offsetY)
+    #   cell.hover = true if cell && cell.type != 'water'
 
-      territory = @map.territoryForCell(cell)
-      territory.hover = true if territory
+    #   territory = @map.territoryForCell(cell)
+    #   territory.hover = true if territory
 
-      @renderer.clear()
-      @renderer.drawMap()
+    #   @renderer.clear()
+    #   @renderer.drawMap()
 
-      cell.hover = false if cell
-      territory.hover = false if territory
+    #   cell.hover = false if cell
+    #   territory.hover = false if territory
 
-    $(@renderer.canvas).on 'click', (e) =>
-      e.preventDefault()
-      cell = @map.cellAtPoint(e.offsetX, e.offsetY)
-      console.log(cell) if cell
+    # $(@renderer.canvas).on 'click', (e) =>
+    #   e.preventDefault()
+    #   console.log(e.offsetX - Tactical.Renderer::padding, e.offsetY - Tactical.Renderer::padding)
+      # cell = @map.cellAtPoint(e.offsetX, e.offsetY)
+      # console.log(cell) if cell
 
-
-
+exports = Game
