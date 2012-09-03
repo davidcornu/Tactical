@@ -1,4 +1,6 @@
-class Tactical.Territory
+Polygon = require './polygon'
+
+class Territory
 
   constructor: ->
     @cells = []
@@ -33,6 +35,9 @@ class Tactical.Territory
     return externalBorders
 
   buildPolygon: ->
-    @polygon = new Tactical.Polygon
+    @polygon = new Polygon
     for cell in @cells
       @polygon.merge(cell)
+    @polygon.optimize()
+
+exports = Territory
