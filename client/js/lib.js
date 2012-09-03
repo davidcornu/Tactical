@@ -211,7 +211,8 @@
 
 }).call(this);
 }, "game": function(exports, require, module) {(function() {
-  var Map, Renderer;
+  var Map, Renderer,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   Renderer = require('renderer').Renderer;
 
@@ -220,9 +221,13 @@
   exports.Game = (function() {
 
     function Game(options) {
+      var $loadState, $loading,
+        _this = this;
       if (options == null) {
         options = {};
       }
+      this._bindUserEvents = __bind(this._bindUserEvents, this);
+
       _(options).extend({
         selector: '.main',
         playerCount: 5,
@@ -230,14 +235,75 @@
         mapHeight: 40
       });
       this.$el = $(options.selector);
-      this.map = new Map(options.mapWidth, options.mapHeight, options.playerCount);
-      this.renderer = new Renderer(this.map);
-      this.$el.html(this.renderer.canvas);
-      this.renderer.drawMap();
-      this._bindUserEvents();
+      $loading = $('.loading');
+      $loadState = $loading.find('.state');
+      this.map = new Map({
+        width: options.mapWidth,
+        height: options.mapHeight,
+        playerCount: options.playerCount,
+        onBuildProgress: function(job, percent) {
+          var message;
+          message = (function() {
+            switch (job) {
+              case 'buildRows':
+                return 'Building map';
+              case 'generatePlayers':
+                return 'Creating players';
+              case 'generateWater':
+                return 'Adding water';
+              case 'generateTerritories':
+                return 'Building territories';
+              case 'cleanUpCells':
+                return 'Cleaning up';
+              case 'buildPolygons':
+                return 'Establishing borders';
+              case 'optimizePolygons':
+                return 'Optimizing';
+              case 'assignTerritories':
+                return 'Assigning territories';
+            }
+          })();
+          if (percent) {
+            message += " - " + percent + "%";
+          }
+          return $loadState.html(message);
+        },
+        onBuildComplete: function() {
+          _this.renderer = new Renderer(_this.map);
+          _this.renderer.drawMap();
+          _this.$el.html(_this.renderer.canvas);
+          _this.$el.removeClass('hidden');
+          $loading.remove();
+          return _this._bindUserEvents();
+        }
+      });
     }
 
-    Game.prototype._bindUserEvents = function() {};
+    Game.prototype._bindUserEvents = function() {
+      var lastTerritory,
+        _this = this;
+      lastTerritory = null;
+      return $(this.renderer.canvas).on('mousedown touchstart', function(e) {
+        var cell, territory;
+        cell = _this.map.cellAtPoint(e.offsetX, e.offsetY);
+        if (cell) {
+          territory = _this.map.territoryForCell(cell);
+          if (territory) {
+            if (lastTerritory && lastTerritory !== territory) {
+              _this.renderer.drawTerritory(lastTerritory);
+            }
+            lastTerritory = territory;
+            territory.hover = true;
+            _this.renderer.drawTerritory(territory);
+            return territory.hover = false;
+          } else {
+            if (lastTerritory) {
+              return _this.renderer.drawTerritory(lastTerritory);
+            }
+          }
+        }
+      });
+    };
 
     return Game;
 
@@ -245,11 +311,11 @@
 
 }).call(this);
 }, "map": function(exports, require, module) {(function() {
-  var Cell, PerlinNoise, Player, Renderer, Territory;
+  var Cell, MapUtils, PerlinNoise, Player, Territory;
+
+  MapUtils = require('map_utils').MapUtils;
 
   Cell = require('cell').Cell;
-
-  Renderer = require('renderer').Renderer;
 
   Player = require('player').Player;
 
@@ -259,24 +325,271 @@
 
   exports.Map = (function() {
 
-    function Map(width, height, playerCount) {
-      if (width == null) {
-        width = 30;
+    function Map(options) {
+      var buildQueue, builder, job,
+        _this = this;
+      if (options == null) {
+        options = {};
       }
-      if (height == null) {
-        height = 40;
-      }
-      this.width = width;
-      this.height = height;
-      this.playerCount = playerCount;
-      this.buildRows();
-      this.generatePlayers();
-      this.generateWater();
-      this.generateTerritories();
-      this.assignTerritories();
+      _(this).extend(MapUtils);
+      _(options).extend({
+        width: 30,
+        height: 40,
+        playerCount: 5
+      });
+      this.options = options;
+      this.width = options.width;
+      this.height = options.height;
+      this.playerCount = options.playerCount;
+      job = null;
+      buildQueue = ['buildRows', 'generatePlayers', 'generateWater', 'generateTerritories', 'assignTerritories', 'cleanUpCells', 'buildPolygons', 'optimizePolygons', 'assignTerritories'].reverse();
+      builder = function() {
+        if (buildQueue.length === 0) {
+          if (typeof options.onBuildProgress === 'function') {
+            return options.onBuildComplete();
+          }
+        } else {
+          job = buildQueue.pop();
+          if (job && typeof options.onBuildProgress === 'function') {
+            options.onBuildProgress(job);
+          }
+          return _this[job](builder);
+        }
+      };
+      builder();
     }
 
-    Map.prototype.eachCell = function(callback) {
+    Map.prototype.buildRows = function(callback) {
+      var mapX, mapY, row, _i, _j, _ref, _ref1;
+      this.rows = [];
+      for (mapY = _i = 0, _ref = this.height - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; mapY = 0 <= _ref ? ++_i : --_i) {
+        row = [];
+        for (mapX = _j = 0, _ref1 = this.width - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; mapX = 0 <= _ref1 ? ++_j : --_j) {
+          row.push(new Cell(mapX, mapY));
+        }
+        this.rows.push(row);
+      }
+      if (typeof callback === 'function') {
+        return callback();
+      }
+    };
+
+    Map.prototype.generatePlayers = function(callback) {
+      var colorNames, i, _i, _ref;
+      this.players = [];
+      colorNames = _.keys(Player.prototype.colors);
+      for (i = _i = 1, _ref = this.playerCount; 1 <= _ref ? _i <= _ref : _i >= _ref; i = 1 <= _ref ? ++_i : --_i) {
+        this.players.push(new Player(colorNames.pop()));
+      }
+      if (typeof callback === 'function') {
+        return callback();
+      }
+    };
+
+    Map.prototype.generateWater = function(callback) {
+      this.waterCells = [];
+      if (typeof callback === 'function') {
+        return callback();
+      }
+    };
+
+    Map.prototype.generateTerritories = function(callback) {
+      var emptyCells, maxSize, minSize, random, runner,
+        _this = this;
+      this.territories = [];
+      random = function(min, max) {
+        return min + Math.floor(Math.random() * (max - min));
+      };
+      minSize = 7;
+      maxSize = 15;
+      emptyCells = [];
+      this.eachCell(function(c) {
+        if (c.type === 'empty') {
+          return emptyCells.push(c);
+        }
+      });
+      emptyCells = _(emptyCells).shuffle();
+      runner = function() {
+        var candidate, candidates, cell, emptyNeighbors, firstCell, index, targetSize, territory, _i, _len, _ref;
+        if (emptyCells.length === 0) {
+          if (typeof callback === 'function') {
+            return callback();
+          }
+        } else {
+          targetSize = random(minSize, maxSize);
+          territory = new Territory;
+          firstCell = emptyCells.pop();
+          firstCell.type = 'terrain';
+          territory.cells.push(firstCell);
+          candidates = _(_this.territoryNeighbors(territory)).filter(function(c) {
+            return c.type === 'empty';
+          });
+          if (candidates.length >= 6) {
+            while (territory.cells.length < targetSize && emptyCells.length > 0) {
+              if (candidates.length === 0) {
+                emptyNeighbors = _(_this.territoryNeighbors(territory)).filter(function(c) {
+                  return c.type === 'empty';
+                });
+                candidates.push.apply(candidates, _(emptyNeighbors).shuffle());
+              }
+              if (candidates.length === 0) {
+                break;
+              }
+              candidate = candidates.pop();
+              candidate.type = 'terrain';
+              territory.cells.push(candidate);
+              index = emptyCells.indexOf(candidate);
+              if (index >= 0) {
+                emptyCells.splice(index, 1);
+              }
+            }
+          }
+          if (territory.cells.length < minSize) {
+            _ref = territory.cells;
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              cell = _ref[_i];
+              cell.type = 'empty';
+            }
+          } else {
+            _this.territories.push(territory);
+          }
+          return setTimeout(runner, 0);
+        }
+      };
+      return runner();
+    };
+
+    Map.prototype.cleanUpCells = function(callback) {
+      var cell, emptyNeighbors, islands, neighbor, remainingCells, territory, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _m, _ref, _ref1;
+      islands = [];
+      _ref = this.territories;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        territory = _ref[_i];
+        emptyNeighbors = _(this.territoryNeighbors(territory)).filter(function(c) {
+          return c.type === 'empty';
+        });
+        for (_j = 0, _len1 = emptyNeighbors.length; _j < _len1; _j++) {
+          neighbor = emptyNeighbors[_j];
+          neighbor.type = 'terrain';
+          territory.cells.push(neighbor);
+        }
+        if (_(this.territoryNeighbors(territory)).all(function(c) {
+          return c.type === 'water';
+        })) {
+          islands.push(territory);
+        }
+      }
+      for (_k = 0, _len2 = islands.length; _k < _len2; _k++) {
+        territory = islands[_k];
+        this.territories.splice(this.territories.indexOf(territory), 1);
+        _ref1 = territory.cells;
+        for (_l = 0, _len3 = _ref1.length; _l < _len3; _l++) {
+          cell = _ref1[_l];
+          cell.type = 'water';
+          this.waterCells.push(cell);
+        }
+      }
+      remainingCells = [];
+      this.eachCell(function(c) {
+        if (c.type === 'empty') {
+          return remainingCells.push(c);
+        }
+      });
+      for (_m = 0, _len4 = remainingCells.length; _m < _len4; _m++) {
+        cell = remainingCells[_m];
+        cell.type = 'water';
+        this.waterCells.push(cell);
+      }
+      if (typeof callback === 'function') {
+        return callback();
+      }
+    };
+
+    Map.prototype.buildPolygons = function(callback) {
+      var runner, territoryIndexQueue, _i, _ref, _results,
+        _this = this;
+      territoryIndexQueue = (function() {
+        _results = [];
+        for (var _i = 0, _ref = this.territories.length; 0 <= _ref ? _i < _ref : _i > _ref; 0 <= _ref ? _i++ : _i--){ _results.push(_i); }
+        return _results;
+      }).apply(this);
+      runner = function() {
+        if (territoryIndexQueue.length === 0) {
+          if (typeof callback === 'function') {
+            return callback();
+          }
+        } else {
+          _this.territories[territoryIndexQueue.pop()].buildPolygon();
+          return setTimeout(runner, 0);
+        }
+      };
+      return runner();
+    };
+
+    Map.prototype.optimizePolygons = function(callback) {
+      var runner, territoryCount, territoryIndexQueue, _i, _ref, _results,
+        _this = this;
+      territoryIndexQueue = (function() {
+        _results = [];
+        for (var _i = 0, _ref = this.territories.length; 0 <= _ref ? _i < _ref : _i > _ref; 0 <= _ref ? _i++ : _i--){ _results.push(_i); }
+        return _results;
+      }).apply(this);
+      territoryCount = this.territories.length;
+      runner = function() {
+        var percent;
+        if (territoryIndexQueue.length === 0) {
+          if (typeof callback === 'function') {
+            return callback();
+          }
+        } else {
+          _this.territories[territoryIndexQueue.pop()].polygon.optimize(runner);
+          if (typeof _this.options.onBuildProgress === 'function') {
+            percent = Math.floor(((territoryCount - territoryIndexQueue.length) / territoryCount) * 100);
+            return _this.options.onBuildProgress('optimizePolygons', percent);
+          }
+        }
+      };
+      return runner();
+    };
+
+    Map.prototype.assignTerritories = function(callback) {
+      var cell, i, player, territory, toGiveOut, waterPortion, _i, _j, _k, _len, _len1, _ref, _ref1, _ref2;
+      toGiveOut = _(this.territories).shuffle();
+      waterPortion = 0.4;
+      for (i = _i = 0, _ref = Math.floor(toGiveOut.length * waterPortion); 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        _ref1 = toGiveOut.pop();
+        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+          cell = _ref1[_j];
+          cell.type = 'water';
+          waterCells.push(cell);
+        }
+      }
+      while (toGiveOut.length > 0) {
+        _ref2 = this.players;
+        for (_k = 0, _len1 = _ref2.length; _k < _len1; _k++) {
+          player = _ref2[_k];
+          if (territory = toGiveOut.pop()) {
+            territory.owner = player;
+          }
+        }
+      }
+      if (typeof callback === 'function') {
+        return callback();
+      }
+    };
+
+    return Map;
+
+  })();
+
+}).call(this);
+}, "map_utils": function(exports, require, module) {(function() {
+  var Renderer;
+
+  Renderer = require('renderer').Renderer;
+
+  exports.MapUtils = {
+    eachCell: function(callback) {
       var cell, row, _i, _len, _ref, _results;
       if (typeof callback !== 'function') {
         return;
@@ -296,35 +609,18 @@
         })());
       }
       return _results;
-    };
-
-    Map.prototype.buildRows = function() {
-      var mapX, mapY, row, _i, _j, _ref, _ref1, _results;
-      this.rows = [];
-      _results = [];
-      for (mapY = _i = 0, _ref = this.height - 1; 0 <= _ref ? _i <= _ref : _i >= _ref; mapY = 0 <= _ref ? ++_i : --_i) {
-        row = [];
-        for (mapX = _j = 0, _ref1 = this.width - 1; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; mapX = 0 <= _ref1 ? ++_j : --_j) {
-          row.push(new Cell(mapX, mapY));
-        }
-        _results.push(this.rows.push(row));
-      }
-      return _results;
-    };
-
-    Map.prototype._validMapCoords = function(mapX, mapY) {
+    },
+    _validMapCoords: function(mapX, mapY) {
       return mapX >= 0 && mapX < this.width && mapY >= 0 && mapY < this.height;
-    };
-
-    Map.prototype.cellAt = function(mapX, mapY) {
+    },
+    cellAt: function(mapX, mapY) {
       if (this._validMapCoords(mapX, mapY)) {
         return this.rows[mapY][mapX];
       } else {
         return null;
       }
-    };
-
-    Map.prototype.cellAtPoint = function(pointX, pointY) {
+    },
+    cellAtPoint: function(pointX, pointY) {
       var cell, row, _i, _j, _len, _len1, _ref;
       pointX -= Renderer.prototype.padding;
       pointY -= Renderer.prototype.padding;
@@ -339,9 +635,8 @@
         }
       }
       return null;
-    };
-
-    Map.prototype.territoryAtPoint = function(pointX, pointY) {
+    },
+    territoryAtPoint: function(pointX, pointY) {
       var cell, territory, _i, _j, _len, _len1, _ref, _ref1;
       pointX -= Renderer.prototype.padding;
       pointY -= Renderer.prototype.padding;
@@ -357,9 +652,8 @@
         }
       }
       return null;
-    };
-
-    Map.prototype.territoryForCell = function(cell) {
+    },
+    territoryForCell: function(cell) {
       var territory, _i, _len, _ref;
       _ref = this.territories;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -369,9 +663,8 @@
         }
       }
       return null;
-    };
-
-    Map.prototype.neighboringCells = function(cell) {
+    },
+    neighboringCells: function(cell) {
       var neighbors, target, targets, _i, _len;
       targets = cell.neighboringCellCoords();
       neighbors = [];
@@ -382,38 +675,8 @@
         }
       }
       return neighbors;
-    };
-
-    Map.prototype.generatePlayers = function() {
-      var colorNames, i, _i, _ref, _results;
-      this.players = [];
-      colorNames = _.keys(Player.prototype.colors);
-      _results = [];
-      for (i = _i = 1, _ref = this.playerCount; 1 <= _ref ? _i <= _ref : _i >= _ref; i = 1 <= _ref ? ++_i : --_i) {
-        _results.push(this.players.push(new Player(colorNames.pop())));
-      }
-      return _results;
-    };
-
-    Map.prototype.generateWater = function() {
-      var size, threshold,
-        _this = this;
-      this.waterCells = [];
-      size = Math.floor(Math.random() * 1000) / 100;
-      threshold = 0.44;
-      return this.eachCell(function(cell) {
-        var n, x, y;
-        x = cell.mapX / _this.width;
-        y = cell.mapY / _this.height;
-        n = PerlinNoise.noise(size * x, size * y, 0.7);
-        if (n < threshold) {
-          cell.type = 'water';
-          return _this.waterCells.push(cell);
-        }
-      });
-    };
-
-    Map.prototype.territoryNeighbors = function(territory) {
+    },
+    territoryNeighbors: function(territory) {
       var cell, neighbor, neighbors, _i, _j, _len, _len1, _ref, _ref1;
       neighbors = [];
       _ref = territory.cells;
@@ -428,132 +691,8 @@
         }
       }
       return neighbors;
-    };
-
-    Map.prototype.generateTerritories = function() {
-      var candidate, candidates, cell, emptyCells, emptyNeighbors, firstCell, index, islands, maxSize, minSize, neighbor, random, remainingCells, targetSize, territory, _i, _j, _k, _l, _len, _len1, _len2, _len3, _len4, _len5, _len6, _m, _n, _o, _ref, _ref1, _ref2, _ref3, _results;
-      this.territories = [];
-      random = function(min, max) {
-        return min + Math.floor(Math.random() * (max - min));
-      };
-      minSize = 6;
-      maxSize = 15;
-      emptyCells = [];
-      this.eachCell(function(c) {
-        if (c.type === 'empty') {
-          return emptyCells.push(c);
-        }
-      });
-      emptyCells = _(emptyCells).shuffle();
-      while (emptyCells.length > 0) {
-        targetSize = random(minSize, maxSize);
-        territory = new Territory;
-        firstCell = emptyCells.pop();
-        firstCell.type = 'terrain';
-        territory.cells.push(firstCell);
-        candidates = [];
-        while (territory.cells.length < targetSize && emptyCells.length > 0) {
-          if (candidates.length === 0) {
-            emptyNeighbors = _(this.territoryNeighbors(territory)).filter(function(c) {
-              return c.type === 'empty';
-            });
-            candidates.push.apply(candidates, _(emptyNeighbors).shuffle());
-          }
-          if (candidates.length === 0) {
-            break;
-          }
-          candidate = candidates.pop();
-          candidate.type = 'terrain';
-          territory.cells.push(candidate);
-          index = emptyCells.indexOf(candidate);
-          if (index >= 0) {
-            emptyCells.splice(index, 1);
-          }
-        }
-        if (territory.cells.length < minSize) {
-          _ref = territory.cells;
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            cell = _ref[_i];
-            cell.type = 'empty';
-          }
-        } else {
-          this.territories.push(territory);
-        }
-      }
-      islands = [];
-      _ref1 = this.territories;
-      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-        territory = _ref1[_j];
-        emptyNeighbors = _(this.territoryNeighbors(territory)).filter(function(c) {
-          return c.type === 'empty';
-        });
-        for (_k = 0, _len2 = emptyNeighbors.length; _k < _len2; _k++) {
-          neighbor = emptyNeighbors[_k];
-          neighbor.type = 'terrain';
-          territory.cells.push(neighbor);
-        }
-        if (_(this.territoryNeighbors(territory)).all(function(c) {
-          return c.type === 'water';
-        })) {
-          islands.push(territory);
-        }
-      }
-      for (_l = 0, _len3 = islands.length; _l < _len3; _l++) {
-        territory = islands[_l];
-        this.territories.splice(this.territories.indexOf(territory), 1);
-        _ref2 = territory.cells;
-        for (_m = 0, _len4 = _ref2.length; _m < _len4; _m++) {
-          cell = _ref2[_m];
-          cell.type = 'water';
-          this.waterCells.push(cell);
-        }
-      }
-      remainingCells = [];
-      this.eachCell(function(c) {
-        if (c.type === 'empty') {
-          return remainingCells.push(c);
-        }
-      });
-      for (_n = 0, _len5 = remainingCells.length; _n < _len5; _n++) {
-        cell = remainingCells[_n];
-        cell.type = 'water';
-        this.waterCells.push(cell);
-      }
-      _ref3 = this.territories;
-      _results = [];
-      for (_o = 0, _len6 = _ref3.length; _o < _len6; _o++) {
-        territory = _ref3[_o];
-        _results.push(territory.buildPolygon());
-      }
-      return _results;
-    };
-
-    Map.prototype.assignTerritories = function() {
-      var player, territory, toGiveOut, _results;
-      toGiveOut = _(this.territories).shuffle();
-      _results = [];
-      while (toGiveOut.length > 0) {
-        _results.push((function() {
-          var _i, _len, _ref, _results1;
-          _ref = this.players;
-          _results1 = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            player = _ref[_i];
-            if (territory = toGiveOut.pop()) {
-              _results1.push(territory.owner = player);
-            } else {
-              _results1.push(void 0);
-            }
-          }
-          return _results1;
-        }).call(this));
-      }
-      return _results;
-    };
-
-    return Map;
-
-  })();
+    }
+  };
 
 }).call(this);
 }, "perlin_noise": function(exports, require, module) {(function() {
@@ -692,13 +831,16 @@
       return _results;
     };
 
-    Polygon.prototype.optimize = function() {
-      var corrected, firstVertex, lastPoint, match, matchIndex, nextPoint, optimizedVertices,
+    Polygon.prototype.optimize = function(callback) {
+      var corrected, firstVertex, lastPoint, match, matchIndex, nextPoint, optimizedVertices, runner,
         _this = this;
       if (this.vertices.length === 0) {
         this.optimized = true;
       }
       if (this.optimized) {
+        if (typeof callback === 'function') {
+          callback();
+        }
         return;
       }
       optimizedVertices = [];
@@ -708,45 +850,53 @@
       match = null;
       matchIndex = null;
       corrected = null;
-      while (this.vertices.length > 0) {
-        if (!lastPoint) {
-          firstVertex = this.vertices.pop();
-          optimizedVertices.push(firstVertex);
-          lastPoint = firstVertex[1];
+      runner = function() {
+        if (_this.vertices.length === 0) {
+          _this.vertices = optimizedVertices;
+          _this.optimized = true;
+          if (typeof callback === 'function') {
+            return callback();
+          }
+        } else {
+          if (!lastPoint) {
+            firstVertex = _this.vertices.pop();
+            optimizedVertices.push(firstVertex);
+            lastPoint = firstVertex[1];
+          }
+          nextPoint = (function() {
+            var i, v, _i, _len, _ref;
+            match = null;
+            matchIndex = null;
+            corrected = null;
+            _ref = _this.vertices;
+            for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
+              v = _ref[i];
+              if (lastPoint[0] === v[0][0] && lastPoint[1] === v[0][1]) {
+                corrected = [v[0], v[1]];
+                match = v[1];
+                matchIndex = i;
+              } else if (lastPoint[0] === v[1][0] && lastPoint[1] === v[1][1]) {
+                corrected = [v[1], v[0]];
+                match = v[0];
+                matchIndex = i;
+              }
+              if (match && matchIndex && corrected) {
+                break;
+              }
+            }
+            if (corrected) {
+              optimizedVertices.push(corrected);
+            }
+            if (matchIndex) {
+              _this.vertices.splice(matchIndex, 1);
+            }
+            return match;
+          })();
+          lastPoint = nextPoint ? nextPoint : null;
+          return setTimeout(runner, 0);
         }
-        nextPoint = (function() {
-          var i, v, _i, _len, _ref;
-          match = null;
-          matchIndex = null;
-          corrected = null;
-          _ref = _this.vertices;
-          for (i = _i = 0, _len = _ref.length; _i < _len; i = ++_i) {
-            v = _ref[i];
-            if (lastPoint[0] === v[0][0] && lastPoint[1] === v[0][1]) {
-              corrected = [v[0], v[1]];
-              match = v[1];
-              matchIndex = i;
-            } else if (lastPoint[0] === v[1][0] && lastPoint[1] === v[1][1]) {
-              corrected = [v[1], v[0]];
-              match = v[0];
-              matchIndex = i;
-            }
-            if (match && matchIndex && corrected) {
-              break;
-            }
-          }
-          if (corrected) {
-            optimizedVertices.push(corrected);
-          }
-          if (matchIndex) {
-            _this.vertices.splice(matchIndex, 1);
-          }
-          return match;
-        })();
-        lastPoint = nextPoint ? nextPoint : null;
-      }
-      this.vertices = optimizedVertices;
-      return this.optimized = true;
+      };
+      return runner();
     };
 
     return Polygon;
@@ -769,42 +919,86 @@
 
     function Renderer(map) {
       _(this).extend(DrawingMethods);
+      this.retina = window.devicePixelRatio > 1;
       this.map = map;
       this.canvas = document.createElement('canvas');
       this.setCanvasSize();
       this.ctx = this.canvas.getContext('2d');
+      if (this.retina) {
+        this.ctx.scale(2, 2);
+      }
     }
 
     Renderer.prototype.setCanvasSize = function() {
-      var _this = this;
-      this.canvas.setAttribute('width', 2 * this.padding + this.map.width * this.cellSize + this.cellSize / 2);
-      return this.canvas.setAttribute('height', (function() {
+      var baseHeight, baseWidth, multiplier,
+        _this = this;
+      baseWidth = 2 * this.padding + this.map.width * this.cellSize + this.cellSize / 2;
+      baseHeight = (function() {
         var base;
         base = 2 * _this.padding + 1.5 * Math.floor(_this.map.height / 2) * _this.cellSize;
         base += _this.map.height % 2 === 0 ? _this.cellSize / 4 : _this.cellSize;
         return base;
-      })());
+      })();
+      $(this.canvas).css('width', baseWidth);
+      $(this.canvas).css('height', baseHeight);
+      multiplier = this.retina ? 2 : 1;
+      this.canvas.setAttribute('width', baseWidth * multiplier);
+      return this.canvas.setAttribute('height', baseHeight * multiplier);
     };
 
     Renderer.prototype.drawMap = function() {
-      var t;
-      t = this.map.territories[0];
-      this.drawPolygon(t.polygon);
-      this.ctx.stroke();
-      return this.resetCtx();
+      var cell, territory, _i, _j, _len, _len1, _ref, _ref1, _results;
+      _ref = this.map.waterCells;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        cell = _ref[_i];
+        this.drawCell(cell, 'rgba(0,0,150,0.05)');
+      }
+      _ref1 = this.map.territories;
+      _results = [];
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        territory = _ref1[_j];
+        _results.push(this.drawTerritory(territory));
+      }
+      return _results;
     };
 
     Renderer.prototype.drawCell = function(cell, color) {
       this.ctx.fillStyle = color;
       this.fillHexagon(cell.x + 1, cell.y + 1, this.cellSize - 2);
+      this.ctx.lineWidth = 2;
       if (cell.hover) {
-        this.strokeHexagon(cell.x + 0.5, cell.y + 0.5, this.cellSize - 1);
+        this.strokeHexagon(cell.x, cell.y, this.cellSize);
       }
       if (cell.hasTroop) {
         this.ctx.fillStyle = 'rgba(255,255,255,0.8)';
         this.fillCircle(cell.x + this.cellSize / 2, cell.y + this.cellSize / 2, this.cellSize / 5);
       }
       return this.resetCtx();
+    };
+
+    Renderer.prototype.drawTerritory = function(territory) {
+      var cell, color, _i, _len, _ref, _results;
+      this.drawPolygon(territory.polygon);
+      if (territory.owner) {
+        this.ctx.fillStyle = territory.owner.color;
+      } else {
+        this.ctx.fillStyle = 'rgba(0,0,150,0.05)';
+      }
+      this.ctx.fill();
+      this.resetCtx();
+      this.drawPolygon(territory.polygon);
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = 'white';
+      this.ctx.stroke();
+      this.resetCtx();
+      _ref = territory.cells;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        cell = _ref[_i];
+        color = territory.hover ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.1)';
+        _results.push(this.drawCell(cell, color));
+      }
+      return _results;
     };
 
     Renderer.prototype.resetCtx = function() {
@@ -870,14 +1064,15 @@
     };
 
     Territory.prototype.buildPolygon = function() {
-      var cell, _i, _len, _ref;
+      var cell, _i, _len, _ref, _results;
       this.polygon = new Polygon;
       _ref = this.cells;
+      _results = [];
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         cell = _ref[_i];
-        this.polygon.merge(cell);
+        _results.push(this.polygon.merge(cell));
       }
-      return this.polygon.optimize();
+      return _results;
     };
 
     return Territory;

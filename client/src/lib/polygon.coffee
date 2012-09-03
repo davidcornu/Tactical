@@ -28,9 +28,11 @@ class exports.Polygon
           duplicateIndexes.push(i2)
     @vertices.splice(index, 1) for index in _(duplicateIndexes).sortBy(_.identity).reverse()
 
-  optimize: ->
+  optimize: (callback) ->
     @optimized = true if @vertices.length == 0
-    return if @optimized
+    if @optimized
+      callback() if typeof(callback) == 'function'
+      return
 
     optimizedVertices = []
     lastPoint   = null
@@ -40,32 +42,39 @@ class exports.Polygon
     matchIndex  = null
     corrected   = null
 
-    while @vertices.length > 0
-      unless lastPoint
-        firstVertex = @vertices.pop()
-        optimizedVertices.push(firstVertex)
-        lastPoint = firstVertex[1]
+    runner = =>
+      if @vertices.length == 0
+        @vertices  = optimizedVertices
+        @optimized = true
+        callback() if typeof(callback) == 'function'
+      else
+        unless lastPoint
+          firstVertex = @vertices.pop()
+          optimizedVertices.push(firstVertex)
+          lastPoint = firstVertex[1]
 
-      nextPoint = do =>
-        match      = null
-        matchIndex = null
-        corrected  = null
-        for v, i in @vertices
-          if lastPoint[0] == v[0][0] and lastPoint[1] == v[0][1]
-            corrected  = [v[0], v[1]]
-            match      = v[1]
-            matchIndex = i
-          else if lastPoint[0] == v[1][0] and lastPoint[1] == v[1][1]
-            corrected  = [v[1], v[0]]
-            match      = v[0]
-            matchIndex = i
-          break if match && matchIndex && corrected
+        nextPoint = do =>
+          match      = null
+          matchIndex = null
+          corrected  = null
+          for v, i in @vertices
+            if lastPoint[0] == v[0][0] and lastPoint[1] == v[0][1]
+              corrected  = [v[0], v[1]]
+              match      = v[1]
+              matchIndex = i
+            else if lastPoint[0] == v[1][0] and lastPoint[1] == v[1][1]
+              corrected  = [v[1], v[0]]
+              match      = v[0]
+              matchIndex = i
+            break if match && matchIndex && corrected
 
-        optimizedVertices.push(corrected) if corrected
-        @vertices.splice(matchIndex, 1)   if matchIndex
-        return match
+          optimizedVertices.push(corrected) if corrected
+          @vertices.splice(matchIndex, 1)   if matchIndex
+          return match
 
-      lastPoint = if nextPoint then nextPoint else null
+        lastPoint = if nextPoint then nextPoint else null
 
-    @vertices  = optimizedVertices
-    @optimized = true
+        setTimeout(runner, 0)
+
+    runner()
+

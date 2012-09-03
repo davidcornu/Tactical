@@ -38,4 +38,3 @@ class exports.Territory
     @polygon = new Polygon
     for cell in @cells
       @polygon.merge(cell)
-    @polygon.optimize()
