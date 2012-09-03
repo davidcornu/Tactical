@@ -1,0 +1,9 @@
+{
+  "name"         : "tactical-client",
+  "version"      : "0.0.1",
+  "description"  : "A platform for artists",
+  "dependencies" : {
+    "coffee-script" : "1.3.x",
+    "stitch"        : "0.3.x"
+  }
+}

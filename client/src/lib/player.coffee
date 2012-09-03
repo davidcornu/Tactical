@@ -1,4 +1,4 @@
-class Player
+class exports.Player
 
   colors:
     blue:   'rgb(77,113,134)'
@@ -11,5 +11,3 @@ class Player
     @colorName = colorName
     @colorName = _.shuffle(_.keys(@colors))[0] unless @colors[colorName]
     @color     = @colors[@colorName]
-
-exports = Player

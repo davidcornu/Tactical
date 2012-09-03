@@ -1,7 +1,7 @@
-Renderer = require './renderer'
-Map      = require './map'
+Renderer = require('renderer').Renderer
+Map      = require('map').Map
 
-class Game
+class exports.Game
 
   constructor: (options = {}) ->
     _(options).extend
@@ -40,5 +40,3 @@ class Game
     #   console.log(e.offsetX - Tactical.Renderer::padding, e.offsetY - Tactical.Renderer::padding)
       # cell = @map.cellAtPoint(e.offsetX, e.offsetY)
       # console.log(cell) if cell
-
-exports = Game

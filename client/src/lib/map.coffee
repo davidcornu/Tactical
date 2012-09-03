@@ -1,10 +1,10 @@
-Cell        = require './cell'
-Renderer    = require './renderer'
-Player      = require './player'
-PerlinNoise = require './perlin_noise'
-Territory   = require './territory'
+Cell        = require('cell').Cell
+Renderer    = require('renderer').Renderer
+Player      = require('player').Player
+PerlinNoise = require('perlin_noise').PerlinNoise
+Territory   = require('territory').Territory
 
-class Map
+class exports.Map
 
   constructor: (width = 30, height = 40, playerCount) ->
     @width       = width
@@ -165,5 +165,3 @@ class Map
     while toGiveOut.length > 0
       for player in @players
         territory.owner = player if territory = toGiveOut.pop()
-
-exports = Map

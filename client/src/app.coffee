@@ -1,4 +1,4 @@
-Game = require './game.js'
+Game = require('game').Game
 
 jQuery ->
   window.game = new Game

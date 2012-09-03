@@ -1,6 +1,6 @@
-Polygon = require './polygon'
+Polygon = require('polygon').Polygon
 
-class Territory
+class exports.Territory
 
   constructor: ->
     @cells = []
@@ -39,5 +39,3 @@ class Territory
     for cell in @cells
       @polygon.merge(cell)
     @polygon.optimize()
-
-exports = Territory

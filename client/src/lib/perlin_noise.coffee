@@ -3,7 +3,7 @@
 # original Java code is at http://cs.nyu.edu/%7Eperlin/noise/.
 # Note that in this version, a number from 0 to 1 is returned.
 
-class PerlinNoise
+class exports.PerlinNoise
 
   @fade: (t) ->
     return t * t * t * (t * (t * 6 - 15) + 10)
@@ -73,5 +73,3 @@ class PerlinNoise
     )
 
     return @scale(@lerp(w, lerp1, lerp2))
-
-exports = PerlinNoise

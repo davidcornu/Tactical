@@ -1,4 +1,4 @@
-class Polygon
+class exports.Polygon
 
   constructor: ->
     @vertices = []
@@ -69,5 +69,3 @@ class Polygon
 
     @vertices  = optimizedVertices
     @optimized = true
-
-exports = Polygon

@@ -1,4 +1,4 @@
-DrawingMethods =
+exports.DrawingMethods =
 
   drawHexagon: (x, y, s) ->
     x += @padding
@@ -54,5 +54,3 @@ DrawingMethods =
 
   clear: ->
     @ctx.clearRect(0, 0, @canvas.width, @canvas.height)
-
-exports = DrawingMethods

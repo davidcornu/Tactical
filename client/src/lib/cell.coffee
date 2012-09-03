@@ -1,4 +1,4 @@
-class Cell
+class exports.Cell
 
   size: 20
 
@@ -82,5 +82,3 @@ class Cell
     for i in [0...points.length]
       next = (if i == points.length - 1 then 0 else i + 1)
       @vertices.push [points[i], points[next]]
-
-exports = Cell

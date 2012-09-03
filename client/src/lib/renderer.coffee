@@ -1,10 +1,13 @@
-class Tactical.Renderer
+DrawingMethods = require('drawing_methods').DrawingMethods
+Cell           = require('cell').Cell
 
-  cellSize: Tactical.Cell::size
+class exports.Renderer
+
+  cellSize: Cell::size
   padding: 10
 
   constructor: (map) ->
-    _(@).extend(Tactical.DrawingMethods)
+    _(@).extend(DrawingMethods)
     @map = map
     @canvas = document.createElement('canvas')
     @setCanvasSize()
@@ -18,19 +21,34 @@ class Tactical.Renderer
       return base
 
   drawMap: ->
-    for cell in @map.waterCells
-      @drawCell(cell, 'rgba(0,0,150,0.05)')
+    t = @map.territories[0]
+    @drawPolygon(t.polygon)
+    @ctx.stroke()
+    @resetCtx()
 
-    for territory in @map.territories
-      for cell in territory.cells
-        color = if territory.hover then 'white' else territory.owner.color
-        @drawCell(cell, color)
+    t = @map.territories[1]
+    @drawPolygon(t.polygon)
+    @ctx.stroke()
+    @resetCtx()
 
-      @drawPolygon(territory.polygon)
-      @ctx.strokeStyle = 'black'
-      @ctx.lineWidth = 2
-      @ctx.stroke()
-      @resetCtx()
+    # for cell in @map.waterCells
+    #   @drawCell(cell, 'rgba(0,0,150,0.05)')
+
+    # for territory in @map.territories
+      # @drawPolygon(territory.polygon)
+      # @ctx.fillStyle = territory.owner.color
+      # @ctx.fill()
+      # @resetCtx()
+
+      # @drawPolygon(territory.polygon)
+      # @ctx.lineWidth = 2
+      # @ctx.strokeStyle = 'white'
+      # @ctx.stroke()
+      # @resetCtx()
+
+      # for cell in territory.cells
+      #   color = if territory.hover then 'white' else 'rgba(0,0,0,0.1)'
+      #   @drawCell(cell, color)
 
   drawCell: (cell, color) ->
     @ctx.fillStyle = color
