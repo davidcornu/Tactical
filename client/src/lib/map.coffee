@@ -1,7 +1,6 @@
 MapUtils    = require('map_utils').MapUtils
 Cell        = require('cell').Cell
 Player      = require('player').Player
-PerlinNoise = require('perlin_noise').PerlinNoise
 Territory   = require('territory').Territory
 
 class exports.Map
