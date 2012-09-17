@@ -20,6 +20,58 @@ class exports.Polygon
     @deduplicate()
     @optimized = false
 
+  merge2: (polygon) ->
+    throw new Error('Merge target does not have vertices') unless polygon.vertices
+
+    @optimized = true
+
+    vertexStartingWithPoint = (vertices, targetPoint) ->
+      for vertex in vertices
+        startingPoint = vertex[0]
+        if startingPoint[0] == targetPoint[0] and startingPoint[1] == targetPoint[1]
+          return vertex
+      return null
+
+    pointsMatch = (point1, point2) ->
+      return false unless point1 && point2
+      point1[0] == point2[0] && point1[1] == point2[1]
+
+    if @vertices.length == 0
+      @vertices.push(polygon.vertices...)
+      return
+
+    optimizedVertices = []
+    firstPoint  = @vertices[0][0]
+    lastPoint   = null
+    lastIndex   = 0
+    nextVertex  = null
+    walkingSelf = true
+
+    walk = =>
+      if pointsMatch(firstPoint, lastPoint)
+        return
+      else
+        lastPoint = firstPoint unless lastPoint
+        if walkingSelf
+          if nextVertex = vertexStartingWithPoint(polygon.vertices, lastPoint)
+            walkingSelf = false
+            lastIndex   = polygon.vertices.indexOf(nextVertex)
+            optimizedVertices.push(nextVertex)
+          else
+            lastIndex += 1
+            optimizedVertices.push(@vertices[lastIndex])
+        else
+          if nextVertex = vertexStartingWithPoint(@vertices, lastPoint)
+            walkingSelf = true
+            lastPoint   = @vertices.indexOf(nextVertex)
+            optimizedVertices.push(nextVertex)
+          else
+            lastIndex += 1
+            optimizedVertices.push(polygon.vertices[lastIndex])
+        walk()
+
+    walk()
+
   deduplicate: ->
     duplicateIndexes = []
     for v1, i1 in @vertices

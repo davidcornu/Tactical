@@ -21,20 +21,18 @@ class exports.Map
     buildQueue = [
       'buildRows',
       'generatePlayers',
-      'generateWater',
       'generateTerritories',
       'assignTerritories',
       'cleanUpCells',
       'buildPolygons',
-      'optimizePolygons',
-      'assignTerritories'
-    ].reverse()
+      'optimizePolygons'
+    ]
 
     builder = =>
       if buildQueue.length == 0
         options.onBuildComplete() if typeof(options.onBuildProgress) == 'function'
       else
-        job = buildQueue.pop()
+        job = buildQueue.shift()
         options.onBuildProgress(job) if job and typeof(options.onBuildProgress) == 'function'
         @[job](builder)
 
@@ -60,24 +58,9 @@ class exports.Map
 
     callback() if typeof(callback) == 'function'
 
-  generateWater: (callback) ->
-    @waterCells = []
-    # TODO - Move this further down the init stack to use territories instead
-    # size = Math.floor(Math.random() * 1000)/100
-    # threshold = 0.44
-
-    # @eachCell (cell) =>
-    #   x = cell.mapX / @width
-    #   y = cell.mapY / @height
-    #   n = PerlinNoise.noise(size * x, size * y, 0.7)
-    #   if n < threshold
-    #     cell.type = 'water'
-    #     @waterCells.push(cell)
-
-    callback() if typeof(callback) == 'function'
-
   generateTerritories: (callback) ->
     @territories = []
+    @waterCells  = []
     random = (min, max) -> min + Math.floor(Math.random() * (max - min))
     minSize = 7
     maxSize = 15
@@ -151,6 +134,24 @@ class exports.Map
 
     callback() if typeof(callback) == 'function'
 
+  assignTerritories: (callback) ->
+    toGiveOut = _(@territories).sortBy((t) -> t.cells.length)
+    waterPortion = 0.1
+
+    for i in [0..Math.floor(toGiveOut.length*waterPortion)]
+      territory = toGiveOut.shift()
+      for cell in territory.cells
+        cell.type = 'water'
+        @waterCells.push(cell)
+      @territories.splice(@territories.indexOf(territory), 1)
+
+    while toGiveOut.length > 0
+      for player in @players
+        if territory = toGiveOut.shift()
+          territory.owner = player
+
+    callback() if typeof(callback) == 'function'
+
   buildPolygons: (callback) ->
     territoryIndexQueue = [0...@territories.length]
     runner = =>
@@ -174,17 +175,3 @@ class exports.Map
           percent = Math.floor(((territoryCount - territoryIndexQueue.length)/territoryCount)*100)
           @options.onBuildProgress('optimizePolygons', percent)
     runner()
-
-  assignTerritories: (callback) ->
-    # TODO - Give smallest territories to water
-    toGiveOut = _(@territories).shuffle()
-    waterPortion = 0.4
-    for i in [0..Math.floor(toGiveOut.length*waterPortion)]
-      for cell in toGiveOut.pop()
-        cell.type = 'water'
-        waterCells.push(cell)
-    while toGiveOut.length > 0
-      for player in @players
-        territory.owner = player if territory = toGiveOut.pop()
-
-    callback() if typeof(callback) == 'function'

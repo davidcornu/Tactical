@@ -311,15 +311,13 @@
 
 }).call(this);
 }, "map": function(exports, require, module) {(function() {
-  var Cell, MapUtils, PerlinNoise, Player, Territory;
+  var Cell, MapUtils, Player, Territory;
 
   MapUtils = require('map_utils').MapUtils;
 
   Cell = require('cell').Cell;
 
   Player = require('player').Player;
-
-  PerlinNoise = require('perlin_noise').PerlinNoise;
 
   Territory = require('territory').Territory;
 
@@ -342,14 +340,14 @@
       this.height = options.height;
       this.playerCount = options.playerCount;
       job = null;
-      buildQueue = ['buildRows', 'generatePlayers', 'generateWater', 'generateTerritories', 'assignTerritories', 'cleanUpCells', 'buildPolygons', 'optimizePolygons', 'assignTerritories'].reverse();
+      buildQueue = ['buildRows', 'generatePlayers', 'generateTerritories', 'assignTerritories', 'cleanUpCells', 'buildPolygons', 'optimizePolygons'];
       builder = function() {
         if (buildQueue.length === 0) {
           if (typeof options.onBuildProgress === 'function') {
             return options.onBuildComplete();
           }
         } else {
-          job = buildQueue.pop();
+          job = buildQueue.shift();
           if (job && typeof options.onBuildProgress === 'function') {
             options.onBuildProgress(job);
           }
@@ -386,17 +384,11 @@
       }
     };
 
-    Map.prototype.generateWater = function(callback) {
-      this.waterCells = [];
-      if (typeof callback === 'function') {
-        return callback();
-      }
-    };
-
     Map.prototype.generateTerritories = function(callback) {
       var emptyCells, maxSize, minSize, random, runner,
         _this = this;
       this.territories = [];
+      this.waterCells = [];
       random = function(min, max) {
         return min + Math.floor(Math.random() * (max - min));
       };
@@ -505,6 +497,36 @@
       }
     };
 
+    Map.prototype.assignTerritories = function(callback) {
+      var cell, i, player, territory, toGiveOut, waterPortion, _i, _j, _k, _len, _len1, _ref, _ref1, _ref2;
+      toGiveOut = _(this.territories).sortBy(function(t) {
+        return t.cells.length;
+      });
+      waterPortion = 0.1;
+      for (i = _i = 0, _ref = Math.floor(toGiveOut.length * waterPortion); 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+        territory = toGiveOut.shift();
+        _ref1 = territory.cells;
+        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+          cell = _ref1[_j];
+          cell.type = 'water';
+          this.waterCells.push(cell);
+        }
+        this.territories.splice(this.territories.indexOf(territory), 1);
+      }
+      while (toGiveOut.length > 0) {
+        _ref2 = this.players;
+        for (_k = 0, _len1 = _ref2.length; _k < _len1; _k++) {
+          player = _ref2[_k];
+          if (territory = toGiveOut.shift()) {
+            territory.owner = player;
+          }
+        }
+      }
+      if (typeof callback === 'function') {
+        return callback();
+      }
+    };
+
     Map.prototype.buildPolygons = function(callback) {
       var runner, territoryIndexQueue, _i, _ref, _results,
         _this = this;
@@ -550,32 +572,6 @@
         }
       };
       return runner();
-    };
-
-    Map.prototype.assignTerritories = function(callback) {
-      var cell, i, player, territory, toGiveOut, waterPortion, _i, _j, _k, _len, _len1, _ref, _ref1, _ref2;
-      toGiveOut = _(this.territories).shuffle();
-      waterPortion = 0.4;
-      for (i = _i = 0, _ref = Math.floor(toGiveOut.length * waterPortion); 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
-        _ref1 = toGiveOut.pop();
-        for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
-          cell = _ref1[_j];
-          cell.type = 'water';
-          waterCells.push(cell);
-        }
-      }
-      while (toGiveOut.length > 0) {
-        _ref2 = this.players;
-        for (_k = 0, _len1 = _ref2.length; _k < _len1; _k++) {
-          player = _ref2[_k];
-          if (territory = toGiveOut.pop()) {
-            territory.owner = player;
-          }
-        }
-      }
-      if (typeof callback === 'function') {
-        return callback();
-      }
     };
 
     return Map;
@@ -695,64 +691,6 @@
   };
 
 }).call(this);
-}, "perlin_noise": function(exports, require, module) {(function() {
-
-  exports.PerlinNoise = (function() {
-
-    function PerlinNoise() {}
-
-    PerlinNoise.fade = function(t) {
-      return t * t * t * (t * (t * 6 - 15) + 10);
-    };
-
-    PerlinNoise.lerp = function(t, a, b) {
-      return a + t * (b - a);
-    };
-
-    PerlinNoise.grad = function(hash, x, y, z) {
-      var h, u, v;
-      h = hash & 15;
-      u = h < 8 ? x : y;
-      v = h < 4 ? y : (h === 12 || h === 14 ? x : z);
-      return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-    };
-
-    PerlinNoise.scale = function(n) {
-      return (1 + n) / 2;
-    };
-
-    PerlinNoise.noise = function(x, y, z) {
-      var A, AA, AB, B, BA, BB, X, Y, Z, i, lerp1, lerp2, p, permutation, u, v, w, _i, _ref;
-      p = new Array(512);
-      permutation = (_ref = []).concat.apply(_ref, [[151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36], [103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0], [26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56], [87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166], [77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55], [46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132], [187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109], [198, 173, 186, 3, 64, 52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126], [255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183], [170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43], [172, 9, 129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112], [104, 218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162], [241, 81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106], [157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93], [222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180]]);
-      for (i = _i = 0; _i <= 256; i = ++_i) {
-        p[256 + i] = p[i] = permutation[i];
-      }
-      X = Math.floor(x) & 255;
-      Y = Math.floor(y) & 255;
-      Z = Math.floor(z) & 255;
-      x -= Math.floor(x);
-      y -= Math.floor(y);
-      z -= Math.floor(z);
-      u = this.fade(x);
-      v = this.fade(y);
-      w = this.fade(z);
-      A = p[X] + Y;
-      AA = p[A] + Z;
-      AB = p[A + 1] + Z;
-      B = p[X + 1] + Y;
-      BA = p[B] + Z;
-      BB = p[B + 1] + Z;
-      lerp1 = this.lerp(v, this.lerp(u, this.grad(p[AA], x, y, z), this.grad(p[BA], x - 1, y, z)), this.lerp(u, this.grad(p[AB], x, y - 1, z), this.grad(p[BB], x - 1, y - 1, z)));
-      lerp2 = this.lerp(v, this.lerp(u, this.grad(p[AA + 1], x, y, z - 1), this.grad(p[BA + 1], x - 1, y, z - 1)), this.lerp(u, this.grad(p[AB + 1], x, y - 1, z - 1), this.grad(p[BB + 1], x - 1, y - 1, z - 1)));
-      return this.scale(this.lerp(w, lerp1, lerp2));
-    };
-
-    return PerlinNoise;
-
-  })();
-
-}).call(this);
 }, "player": function(exports, require, module) {(function() {
 
   exports.Player = (function() {
@@ -806,6 +744,75 @@
       }
       this.deduplicate();
       return this.optimized = false;
+    };
+
+    Polygon.prototype.merge2 = function(polygon) {
+      var firstPoint, lastIndex, lastPoint, nextVertex, optimizedVertices, pointsMatch, vertexStartingWithPoint, walk, walkingSelf, _ref,
+        _this = this;
+      if (!polygon.vertices) {
+        throw new Error('Merge target does not have vertices');
+      }
+      this.optimized = true;
+      vertexStartingWithPoint = function(vertices, targetPoint) {
+        var startingPoint, vertex, _i, _len;
+        for (_i = 0, _len = vertices.length; _i < _len; _i++) {
+          vertex = vertices[_i];
+          startingPoint = vertex[0];
+          if (startingPoint[0] === targetPoint[0] && startingPoint[1] === targetPoint[1]) {
+            return vertex;
+          }
+        }
+        return null;
+      };
+      pointsMatch = function(point1, point2) {
+        if (!(point1 && point2)) {
+          return false;
+        }
+        return point1[0] === point2[0] && point1[1] === point2[1];
+      };
+      if (this.vertices.length === 0) {
+        (_ref = this.vertices).push.apply(_ref, polygon.vertices);
+        return;
+      }
+      optimizedVertices = [];
+      firstPoint = this.vertices[0][0];
+      lastPoint = null;
+      lastIndex = 0;
+      nextVertex = null;
+      walkingSelf = true;
+      walk = function() {
+        console.log('walking');
+        if (pointsMatch(firstPoint, lastPoint)) {
+
+        } else {
+          if (!lastPoint) {
+            lastPoint = firstPoint;
+          }
+          if (walkingSelf) {
+            console.log('walking self');
+            if (nextVertex = vertexStartingWithPoint(polygon.vertices, lastPoint)) {
+              walkingSelf = false;
+              lastIndex = polygon.vertices.indexOf(nextVertex);
+              optimizedVertices.push(nextVertex);
+            } else {
+              lastIndex += 1;
+              optimizedVertices.push(_this.vertices[lastIndex]);
+            }
+          } else {
+            console.log('walking target');
+            if (nextVertex = vertexStartingWithPoint(_this.vertices, lastPoint)) {
+              walkingSelf = true;
+              lastPoint = _this.vertices.indexOf(nextVertex);
+              optimizedVertices.push(nextVertex);
+            } else {
+              lastIndex += 1;
+              optimizedVertices.push(polygon.vertices[lastIndex]);
+            }
+          }
+          return walk();
+        }
+      };
+      return walk();
     };
 
     Polygon.prototype.deduplicate = function() {
