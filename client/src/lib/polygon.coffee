@@ -4,15 +4,15 @@ class exports.Polygon
     @vertices = []
     @optimized = false
 
+  matchPoints: (a, b) ->
+    return false unless a and b
+    a[0] == b[0] and a[1] == b[1]
+
   matchVertices: (a, b) ->
-    (a[0][0] == b[0][0] and
-     a[0][1] == b[0][1] and
-     a[1][0] == b[1][0] and
-     a[1][1] == b[1][1]) or
-    (a[1][0] == b[0][0] and
-     a[1][1] == b[0][1] and
-     a[0][0] == b[1][0] and
-     a[0][1] == b[1][1])
+    (@matchPoints(a[0], b[0]) and
+     @matchPoints(a[1], b[1])) or
+    (@matchPoints(a[1], b[0]) and
+     @matchPoints(a[0], b[1]))
 
   merge: (polygon) ->
     throw new Error('Merge target does not have vertices') unless polygon.vertices
@@ -20,57 +20,54 @@ class exports.Polygon
     @deduplicate()
     @optimized = false
 
+  findVertexStartingWithPoint: (vertices, point) ->
+    for vertex in vertices
+      if @matchPoints(vertex[0], point)
+        return vertex
+    return null
+
   merge2: (polygon) ->
     throw new Error('Merge target does not have vertices') unless polygon.vertices
-
     @optimized = true
-
-    vertexStartingWithPoint = (vertices, targetPoint) ->
-      for vertex in vertices
-        startingPoint = vertex[0]
-        if startingPoint[0] == targetPoint[0] and startingPoint[1] == targetPoint[1]
-          return vertex
-      return null
-
-    pointsMatch = (point1, point2) ->
-      return false unless point1 && point2
-      point1[0] == point2[0] && point1[1] == point2[1]
 
     if @vertices.length == 0
       @vertices.push(polygon.vertices...)
       return
 
     optimizedVertices = []
-    firstPoint  = @vertices[0][0]
+    walkingSelf = true
     lastPoint   = null
+    firstPoint  = @vertices[0][0]
     lastIndex   = 0
     nextVertex  = null
-    walkingSelf = true
 
     walk = =>
-      if pointsMatch(firstPoint, lastPoint)
-        return
-      else
-        lastPoint = firstPoint unless lastPoint
-        if walkingSelf
-          if nextVertex = vertexStartingWithPoint(polygon.vertices, lastPoint)
-            walkingSelf = false
-            lastIndex   = polygon.vertices.indexOf(nextVertex)
-            optimizedVertices.push(nextVertex)
-          else
-            lastIndex += 1
-            optimizedVertices.push(@vertices[lastIndex])
+      return if @matchPoints(firstPoint, lastPoint)
+      lastPoint ?= firstPoint
+      if walkingSelf
+        if nextVertex = @findVertexStartingWithPoint(polygon.vertices, lastPoint)
+          walkingSelf = false
+          optimizedVertices.push(nextVertex)
+          lastIndex = polygon.vertices.indexOf(nextVertex)
         else
-          if nextVertex = vertexStartingWithPoint(@vertices, lastPoint)
-            walkingSelf = true
-            lastPoint   = @vertices.indexOf(nextVertex)
-            optimizedVertices.push(nextVertex)
-          else
-            lastIndex += 1
-            optimizedVertices.push(polygon.vertices[lastIndex])
-        walk()
+          lastIndex = 0 if lastIndex > @vertices.length - 1
+          optimizedVertices.push(@vertices[lastIndex])
+          lastIndex += 1
+      else
+        if nextVertex = @findVertexStartingWithPoint(@vertices, lastPoint)
+          walkingSelf = true
+          optimizedVertices.push(nextVertex)
+          lastIndex = @vertices.indexOf(nextVertex)
+        else
+          lastIndex = 0 if lastIndex > polygon.vertices.length - 1
+          optimizedVertices.push(polygon.vertices[lastIndex])
+          lastIndex += 1
+
+      lastPoint = optimizedVertices[optimizedVertices.length - 1][1]
+      walk()
 
     walk()
+    @vertices = optimizedVertices
 
   deduplicate: ->
     duplicateIndexes = []
